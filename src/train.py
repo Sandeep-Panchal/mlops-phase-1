@@ -11,11 +11,6 @@ from sklearn.metrics import accuracy_score
 from src.config import *
 from src.model_registry import promote_model_if_better
 
-# Only create experiment if not CI
-if not CI_MODE:
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    mlflow.set_experiment(EXPERIMENT_NAME)
-
 # -------------------------------
 # Data Preparation
 # -------------------------------
@@ -42,6 +37,11 @@ def data_preparation():
 # Training Function
 # -------------------------------
 def train():
+
+    # Only create experiment if not CI
+    if not CI_MODE:
+        mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+        mlflow.set_experiment(EXPERIMENT_NAME)
 
     X_train, X_test, y_train, y_test = data_preparation()
 
