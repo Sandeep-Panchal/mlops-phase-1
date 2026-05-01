@@ -1,0 +1,48 @@
+mlflow server \
+  --backend-store-uri sqlite:///mlflow.db \
+  --default-artifact-root ./mlruns \
+  --host 0.0.0.0 \
+  --port 5000
+
+
+mlops-phase1/
+│
+├── data/
+│   └── data.csv
+│
+├── src/
+│   ├── train.py
+│   ├── predict.py
+│   └── registry.py
+│
+├── app/
+│   └── main.py
+│
+├── config.py
+├── requirements.txt
+├── Dockerfile
+├── .github/workflows/ci.yaml
+└── README.md
+
+
+name: MLOps CI Pipeline
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run training pipeline
+        run: python src/train.py
+
+      - name: Build Docker image
+        run: docker build -t sentiment-app .
