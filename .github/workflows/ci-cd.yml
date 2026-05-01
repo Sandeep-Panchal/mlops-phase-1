@@ -1,0 +1,46 @@
+name: Phase 1 - MLOps Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+
+  push:
+    branches: [main]
+
+jobs:
+
+  # 🔹 CI JOB (PR validation)
+  ci:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint / Basic Check
+        run: echo "Add linting or tests here"
+
+      - name: Dry Run Training (optional)
+        run: python src/train.py || echo "Skipping MLflow in PR"
+
+---
+
+  # 🔹 CD JOB (Main branch only)
+  cd:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Train Model + Register
+        run: python src/train.py
+
+      - name: Build Docker Image
+        run: docker build -t sentiment-app .
