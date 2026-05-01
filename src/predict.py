@@ -1,18 +1,34 @@
+import mlflow
 import mlflow.pyfunc
+
 from src.config import *
 
-mlflow.set_tracking_uri(DOCKER_MLFLOW_TRACKING_URI)
+# -------------------------------
+# MLflow setup
+# -------------------------------
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 MODEL_URI = f"models:/{MODEL_NAME}/Production"
-model = mlflow.pyfunc.load_model(MODEL_URI)
+
+# Lazy loaded model
+model = None
+
+def load_model():
+    global model
+
+    if model is None:
+        print("Loading model from MLflow...")
+        model = mlflow.pyfunc.load_model(MODEL_URI)
 
 
 def predict(text: str):
+    load_model()
     sentiment = int(model.predict([text])[0])
     return "Positive" if sentiment == 1 else "Negative"
 
-if __name__=="__main__":
 
-    text = "you are a bad boy"
-    sentiment = predict(text)
-    print(sentiment)
+# -------------------------------
+# Test run
+# -------------------------------
+if __name__ == "__main__":
+    print(predict("you are a bad boy"))

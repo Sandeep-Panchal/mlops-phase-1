@@ -17,16 +17,22 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Lint / Basic Check
-        run: echo "Add linting or tests here"
+      - name: Basic Import Check
+        run: python -c "import src.train; print('Import OK')"
 
-      - name: Dry Run Training (optional)
-        run: python src/train.py || echo "Skipping MLflow in PR"
+      - name: Run Training (CI Mode)
+        run: |
+          export ENV=ci
+          python src/train.py
 
----
 
   # 🔹 CD JOB (Main branch only)
   cd:
@@ -36,11 +42,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Train Model + Register
-        run: python src/train.py
+      - name: Train + Register Model
+        run: |
+          export ENV=ci
+          python src/train.py
 
       - name: Build Docker Image
-        run: docker build -t sentiment-app .
+        run: docker build -t sentiment-app-v1 .

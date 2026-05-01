@@ -1,61 +1,83 @@
 # --- Import required modules ---
 import mlflow
 import pandas as pd
+
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 
-from config import *
-from model_registry import promote_model_if_better
+from src.config import *
+from src.model_registry import promote_model_if_better
 
+
+# -------------------------------
+# MLflow Setup (always safe now)
+# -------------------------------
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-mlflow.set_experiment(EXPERIMENT_NAME)
 
-# --- Prepare training data ---
+# Only create experiment if not CI
+if not CI_MODE:
+    mlflow.set_experiment(EXPERIMENT_NAME)
+
+# -------------------------------
+# Data Preparation
+# -------------------------------
 def data_preparation():
 
-    # Load the sentiment analysis dataset
-    df = pd.read_csv("../data/binary_class.csv")
+    # FIX: make path consistent for local + docker + CI
+    df = pd.read_csv("data/binary_class.csv")
 
-    print(f"Head of the dataframe {df.head()}")
-    print(f"Shape of the dataframe: {df.shape}")
-    print(f"Columns of the dataframe: {df.columns}")
+    print(f"Shape of dataframe: {df.shape}")
 
     X, y = df["text"], df["sentiment"]
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
-
-    print(f"Shapes of x and y train: {X_train.shape}, {y_train.shape}")
-    print(f"Shapes of x and y test: {X_test.shape}, {y_test.shape}")
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y,
+        test_size=0.2,
+        stratify=y,
+        random_state=42
+    )
 
     return X_train, X_test, y_train, y_test
 
-# --- Train the model and log in mlflow ---
+
+# -------------------------------
+# Training Function
+# -------------------------------
 def train():
 
     X_train, X_test, y_train, y_test = data_preparation()
 
+    pipeline = Pipeline([
+        ("vectorizer", TfidfVectorizer()),
+        # ("vectorizer", CountVectorizer()),  # optional
+        ("clf", LogisticRegression())
+    ])
+
+    # Train
+    pipeline.fit(X_train, y_train)
+
+    predictions = pipeline.predict(X_test)
+    accuracy = accuracy_score(y_test, predictions)
+
+    print(f"Accuracy: {accuracy}")
+
+    # -------------------------------
+    # CI Mode → skip MLflow + registry
+    # -------------------------------
+    if CI_MODE:
+        print("CI mode → skipping MLflow + registry")
+        return
+
+    # -------------------------------
+    # MLflow Logging + Registry
+    # -------------------------------
     with mlflow.start_run() as run:
-
-        pipeline = Pipeline([
-            ("vectorizer", TfidfVectorizer()),
-            # ("vectorizer", CountVectorizer()),
-            ("clf", LogisticRegression())
-        ])
-
-        # Train the model
-        pipeline.fit(X_train, y_train)
-
-        test_predictions = pipeline.predict(X_test)
-
-        accuracy = accuracy_score(y_test, test_predictions)
 
         mlflow.log_metric("accuracy", accuracy)
 
-        # log + register
         mlflow.sklearn.log_model(
             pipeline,
             "model",
@@ -64,13 +86,14 @@ def train():
 
         run_id = run.info.run_id
 
-        print(f"Accuracy: {accuracy}")
         print(f"Run ID: {run_id}")
 
+        # Promotion logic
         promote_model_if_better(run_id, accuracy)
 
 
+# -------------------------------
+# Entry Point
+# -------------------------------
 if __name__ == "__main__":
     train()
-
-

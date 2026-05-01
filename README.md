@@ -12,9 +12,7 @@ This project demonstrates a **complete end-to-end MLOps pipeline (Phase 1)** for
 ## 🧠 Architecture Overview
 
 ```text
-GitHub Push
-   ↓
-CI (GitHub Actions)
+Local / Docker Run
    ↓
 Train Model + Log to MLflow
    ↓
@@ -23,6 +21,18 @@ Model Registered in MLflow
 Auto Promotion (Staging → Production)
    ↓
 FastAPI loads Production Model
+```
+
+### CI Flow (GitHub Actions)
+
+```text
+Pull Request / Push
+   ↓
+CI Pipeline
+   ↓
+Code Validation + Training (No MLflow)
+   ↓
+Docker Image Build
 ```
 
 ---
@@ -36,12 +46,13 @@ mlops-phase1/
 │   └── binary_class.csv
 │
 ├── src/
-│   ├── train.py          # Training + MLflow logging
-│   ├── predict.py        # Load model from registry
-│   |── registry.py       # Promotion logic
-│   └── config.py         # Configurations (MLflow URI, model name, etc.)
+│   ├── train.py
+│   ├── predict.py
+│   ├── registry.py
+│   └── config.py
+│
 ├── app/
-│   └── main.py           # FastAPI app
+│   └── main.py
 │
 ├── requirements.txt
 ├── Dockerfile
@@ -55,25 +66,26 @@ mlops-phase1/
 
 ### ✅ Experiment Tracking
 
-* Logs parameters, metrics, and models using MLflow
+* Logs metrics and models using MLflow
 
 ### ✅ Model Registry
 
-* Registers model versions
-* Maintains lifecycle:
+* Versioned models with lifecycle:
 
-  * None → Staging → Production
+  ```text
+  None → Staging → Production
+  ```
 
 ### ✅ Auto Promotion Logic
 
-* Model is promoted to **Production** if:
+* Promotes model to Production if:
 
   * Accuracy improves over current production
-  * OR passes threshold
+  * OR no production model exists
 
 ### ✅ API Deployment
 
-* FastAPI serves model from:
+FastAPI serves model from:
 
 ```text
 models:/SentimentModel/Production
@@ -81,22 +93,36 @@ models:/SentimentModel/Production
 
 ### ✅ CI Pipeline
 
-* Triggered on GitHub push
-* Trains model
-* Registers model
+* Triggered on PR / push
+* Validates code
+* Runs training in safe mode (no MLflow)
 * Builds Docker image
 
 ---
 
 ## 🧪 Dataset
 
-Simple sentiment dataset:
-
 ```csv
 text,sentiment
 "I love this movie",1
 "Worst experience ever",-1
 ```
+
+---
+
+## 🌍 Environment Configuration
+
+The pipeline behavior depends on:
+
+```text
+ENV = local | docker | ci
+```
+
+| ENV    | Behavior                  |
+| ------ | ------------------------- |
+| local  | Full MLflow + registry    |
+| docker | Full MLflow (via host)    |
+| ci     | Training only (no MLflow) |
 
 ---
 
@@ -130,9 +156,10 @@ http://localhost:5000
 
 ---
 
-### 3️⃣ Train Model
+### 3️⃣ Train Model (Local)
 
-```bash
+```powershell
+$env:ENV="local"
 python src/train.py
 ```
 
@@ -141,7 +168,6 @@ This will:
 * Train model
 * Log metrics
 * Register model
-* Move to Staging
 * Promote to Production (if better)
 
 ---
@@ -173,31 +199,29 @@ docker build -t sentiment-app .
 ### Run Container
 
 ```bash
-docker run -p 8000:8000 sentiment-app
-```
-
----
-
-### ⚠️ Important (MLflow inside Docker)
-
-Update `config.py`:
-
-```python
-MLFLOW_TRACKING_URI = "http://host.docker.internal:5000"
+docker run -e ENV=docker -p 8000:8000 sentiment-app
 ```
 
 ---
 
 ## 🔁 CI/CD (GitHub Actions)
 
-Pipeline runs on push:
+### CI (Current Phase)
 
-```yaml
-- Install dependencies
-- Train model
-- Register model
-- Build Docker image
+```text
+PR / Push
+   ↓
+Install dependencies
+   ↓
+Run training (CI mode)
+   ↓
+Build Docker image
 ```
+
+⚠️ Note:
+
+* MLflow is NOT used in CI (Phase 1)
+* Model registry happens locally or via Docker
 
 ---
 
@@ -205,7 +229,7 @@ Pipeline runs on push:
 
 ### 🔹 Model Registry-based Deployment
 
-API always loads:
+API always serves:
 
 ```text
 Production model
@@ -215,8 +239,8 @@ Production model
 
 ### 🔹 Automatic Model Promotion
 
-* Based on performance
-* No manual intervention
+* Based on model performance
+* Fully automated
 
 ---
 
@@ -232,32 +256,34 @@ v3 → Production (if better)
 
 ### 🔹 Rollback Ready
 
-Just change stage in MLflow UI or via code
+* Change model stage in MLflow UI
 
 ---
 
 ## ⚠️ Limitations (Phase 1)
 
-* No data and pipeline versioning (DVC not included yet)
-* No cloud deployment (EC2/S3)
-* Model loads at runtime (basic approach)
+* CI does NOT perform real model registry
+* No DVC (data/pipeline versioning)
+* No cloud deployment
+* MLflow is local (not remote)
 * No monitoring
 
 ---
 
 ## 🚀 Next Steps (Phase 2)
 
-* Add DVC for data & pipeline versioning
+* Run MLflow inside CI (true CD)
+* Add DVC
 * Store artifacts in S3
 * Deploy on EC2
-* Add load balancer & auto-scaling
-* Add monitoring (Prometheus/Grafana)
+* Add load balancer
+* Add monitoring
 
 ---
 
 ## 🧠 Learnings
 
-* Difference between Experiments vs Model Registry
+* Experiment vs Model Registry separation
 * CI vs CD in MLOps
 * Model lifecycle management
 * Containerized ML deployment
