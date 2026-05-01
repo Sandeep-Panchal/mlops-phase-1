@@ -1,6 +1,8 @@
 name: Phase 1 - MLOps Pipeline
 
 on:
+  pull_request:
+    branches: [main]
 
   push:
     branches: [main]
@@ -9,7 +11,7 @@ jobs:
 
   # 🔹 CI JOB (PR validation)
   ci:
-    if: github.event_name == 'push'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
